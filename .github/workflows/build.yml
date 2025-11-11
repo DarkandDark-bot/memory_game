@@ -1,99 +1,83 @@
-name: Build Kivy APK
+name: Build APK
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout repo
       uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
 
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y \
-          python3-pip git zip unzip openjdk-17-jdk autoconf automake \
-          libtool pkg-config zlib1g-dev libffi-dev libssl-dev
+        sudo apt install -y python3 python3-pip zip unzip openjdk-17-jdk libffi-dev
 
     - name: Install Buildozer & Cython
       run: |
         pip install --upgrade pip
-        pip install "cython<3" buildozer
+        pip install buildozer cython
 
-    - name: Install Android SDK (FIXED STRUCTURE + MANUAL BUILD-TOOLS)
+    - name: Create Android SDK + NDK folders
       run: |
-        # -------------------------------
-        # ✅ CORRECT SDK ROOT
-        # -------------------------------
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-        cd $ANDROID_SDK_ROOT/cmdline-tools
+        mkdir -p $HOME/android-sdk
+        mkdir -p $HOME/android-ndk
 
-        # -------------------------------
-        # ✅ DOWNLOAD OLD CMDLINE TOOLS
-        # (the last one that works with build-tools 33.x)
-        # -------------------------------
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-        
-        # Unzip into temp, because Google nests folders
-        mkdir temp
-        unzip tools.zip -d temp/
+    - name: Export paths
+      run: |
+        echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROIDNDK=$HOME/android-ndk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$HOME/android-ndk" >> $GITHUB_ENV
+        echo "PATH=$HOME/android-sdk/build-tools/33.0.2:$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
-        # Move INNER cmdline-tools to the REAL location
-        mv temp/cmdline-tools latest
-        rm -rf temp
+    - name: Download Android Commandline Tools
+      run: |
+        cd $HOME/android-sdk
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd.zip
+        unzip cmd.zip -d cmdline-tools
+        mv cmdline-tools/cmdline-tools cmdline-tools/latest
+        rm cmd.zip
 
-        # -------------------------------
-        # ✅ SDKMANAGER PATH FIX
-        # -------------------------------
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-
-        chmod +x $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/*
-
-        # -------------------------------
-        # ✅ ACCEPT LICENSES
-        # -------------------------------
-        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-
-        # -------------------------------
-        # ✅ INSTALL PLATFORM-TOOLS ONLY
-        # (DON'T INSTALL build-tools HERE — Google force-installs 36.x)
-        # -------------------------------
-        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
-          "platform-tools" \
-          "platforms;android-33"
-
-        # -------------------------------
-        # ✅ MANUAL INSTALL OF BUILD-TOOLS 33.0.2
-        # (Contains aidl, aapt2, d8, etc.)
-        # -------------------------------
-        cd $ANDROID_SDK_ROOT
+    - name: Install build-tools 33.0.2 manually (FIX)
+      run: |
+        cd $HOME/android-sdk
         wget https://dl.google.com/android/repository/build-tools_r33.0.2-linux.zip -O bt.zip
         unzip bt.zip
+        mkdir -p $HOME/android-sdk/build-tools/33.0.2
+        mv android-13/* $HOME/android-sdk/build-tools/33.0.2/
+        rm -rf android-13
+        rm bt.zip
 
-        # ZIP unpacks as "android-13"
-        mv android-13 build-tools
-        mv build-tools build-tools/33.0.2
+    - name: Install platform android-33
+      run: |
+        cd $HOME/android-sdk
+        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platforms;android-33"
 
-        echo "ANDROIDSDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-        echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+    - name: Download Android NDK r25b
+      run: |
+        cd $HOME/android-ndk
+        wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
+        unzip ndk.zip
+        mv android-ndk-r25b/* .
+        rm -rf android-ndk-r25b
+        rm ndk.zip
+
+    - name: Initialize buildozer
+      run: |
+        buildozer init || true
 
     - name: Build APK
       run: |
-        export ANDROIDSDK=$HOME/android-sdk
-        export ANDROID_HOME=$HOME/android-sdk
-        buildozer -v android debug
+        buildozer android debug
 
-    - name: Upload APK
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: MemoryMatch-APK
+        name: memory_game_apk
         path: bin/*.apk
