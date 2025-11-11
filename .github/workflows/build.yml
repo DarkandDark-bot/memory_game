@@ -8,70 +8,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git zip unzip python3-pip autoconf automake libtool pkg-config \
-            zlib1g-dev libstdc++6 openjdk-17-jdk libffi-dev libssl-dev
+    - name: Install Ubuntu deps
+      run: |
+        sudo apt update
+        sudo apt install -y git zip unzip python3-pip openjdk-17-jdk \
+          autoconf automake libtool pkg-config zlib1g-dev libffi-dev libssl-dev
 
-      - name: Install Buildozer
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install "cython<3" buildozer
+    - name: Install Buildozer
+      run: |
+        pip install --upgrade pip
+        pip install "cython<3" buildozer
 
-      - name: Install Android SDK (FORCE 33.0.2)
-        run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools/latest
-          cd $HOME/android-sdk/cmdline-tools/latest
+    - name: Install OLD Android SDK (the working one)
+      run: |
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        cd $HOME/android-sdk/cmdline-tools
 
-          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          unzip tools.zip
+        # ✅ Install old SDK tools (allows 33.0.2)
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+        unzip tools.zip -d latest
 
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
 
-          chmod +x $HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin/*
+        yes | sdkmanager --licenses
 
-          # Accept all licenses FIRST
-          yes | sdkmanager --licenses --sdk_root=$HOME/android-sdk
+        # ✅ Install ONLY supported versions (avoid 36.x)
+        yes | sdkmanager \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.2"
 
-          # ✅ FORCE INSTALL ONLY SUPPORTED BUILD-TOOLS (NO 36.x!)
-          yes | sdkmanager --sdk_root=$HOME/android-sdk \
-            "build-tools;33.0.2" \
-            "platform-tools" \
-            "platforms;android-33"
+        echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
 
-          # ✅ REMOVE ANY 36.x IF GOOGLE INSTALLED IT
-          rm -rf $HOME/android-sdk/build-tools/36.*
+    - name: Build APK
+      run: |
+        export ANDROIDSDK=$HOME/android-sdk
+        export ANDROID_HOME=$HOME/android-sdk
+        buildozer -v android debug
 
-          # ✅ Install AIDL manually if needed
-          if [ ! -f "$HOME/android-sdk/build-tools/33.0.2/aidl" ]; then
-              echo "Manual AIDL install..."
-              wget https://dl.google.com/android/repository/build-tools_r33.0.2-linux.zip -O bt.zip
-              unzip bt.zip -d $HOME/android-sdk/
-              mv $HOME/android-sdk/android-11 $HOME/android-sdk/build-tools/33.0.2
-          fi
-
-          echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-
-      - name: Build APK
-        run: |
-          export ANDROIDSDK=$HOME/android-sdk
-          export ANDROID_HOME=$HOME/android-sdk
-          buildozer -v android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MemoryMatch-APK
-          path: bin/*.apk
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: MemoryMatch-APK
+        path: bin/*.apk
