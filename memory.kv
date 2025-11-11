@@ -1,0 +1,52 @@
+#:kivy 2.3.0
+ScreenManager:
+    MenuScreen:
+        name: "menu"
+    GameScreen:
+        name: "game"
+
+<MenuScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 20
+        padding: 30
+        Label:
+            text: "MEMORY MATCH"
+            font_size: 40
+        Label:
+            text: "Mejor puntaje: " + str(root.best_moves)
+            font_size: 25
+        Button:
+            text: "Jugar"
+            font_size: 30
+            on_release: root.manager.current = "game"
+        Button:
+            text: "Salir"
+            font_size: 30
+            on_release: app.stop()
+
+<GameScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: 10
+        spacing: 10
+        Label:
+            text: "Movimientos: " + str(root.moves)
+            size_hint_y: 0.1
+            font_size: 22
+        GridLayout:
+            id: grid
+            cols: 4
+            spacing: 5
+            size_hint_y: 0.9
+
+<Card>:
+    canvas.before:
+        Color:
+            rgba: (0.4, 0.4, 1, 1) if self.revealed else (0.2, 0.2, 0.2, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    Label:
+        text: root.icon if root.revealed else "?"
+        font_size: 40
