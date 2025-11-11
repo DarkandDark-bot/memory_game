@@ -23,24 +23,30 @@ jobs:
             git zip unzip python3-pip autoconf automake libtool pkg-config \
             zlib1g-dev libstdc++6 openjdk-17-jdk libffi-dev libssl-dev
 
-      - name: Install Buildozer + Cython
+      - name: Install Buildozer & Cython
         run: |
           python3 -m pip install --upgrade pip
           pip install "cython<3.0" buildozer
 
-      - name: Install Android SDK + AIDL (SAFE METHOD)
+      - name: Install Android SDK (REAL FIX 2025)
         run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
 
-          # Download commandline tools
+          # Descargar commandline tools NUEVOS
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          unzip tools.zip -d tools
 
-          # SDKManager path
+          # Crear la estructura correcta que espera el SDK
+          mkdir -p cmdline-tools/latest
+          unzip tools.zip -d cmdline-tools/latest/
+
           export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$HOME/android-sdk/cmdline-tools/tools/bin:$PATH
+          export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
 
+          # Asegurar permisos
+          chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/*
+
+          # Instalar SDKs necesarios
           yes | sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" \
             "platforms;android-33" \
