@@ -27,34 +27,32 @@ jobs:
         pip install --upgrade pip
         pip install "cython<3" buildozer
 
-    - name: Install Android SDK (FIXED STRUCTURE)
+    - name: Install Android SDK + MANUAL build-tools
       run: |
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
-
-        # ✅ Download old tools (33.x compatible)
+        
+        # ✅ Install commandline-tools (for sdkmanager & platform-tools)
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-
-        # ✅ Unzip into temp folder
-        mkdir temp
-        unzip tools.zip -d temp/
-
-        # ✅ Move REAL cmdline-tools into place
-        mv temp/cmdline-tools latest
-
-        rm -rf temp
+        mkdir latest
+        unzip tools.zip -d latest/
 
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
 
-        chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/*
+        yes | sdkmanager --licenses
 
-        yes | sdkmanager --sdk_root=$HOME/android-sdk --licenses
+        # ✅ Install ONLY platform-tools and platform (NO build-tools here!)
+        yes | sdkmanager \
+            "platform-tools" \
+            "platforms;android-33"
 
-        yes | sdkmanager --sdk_root=$HOME/android-sdk \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.2"
+        # ✅ MANUAL install of build-tools 33.0.2 (NO LICENSE REQUIRED)
+        cd $HOME/android-sdk
+        wget https://dl.google.com/android/repository/build-tools_r33.0.2-linux.zip -O bt.zip
+        unzip bt.zip
+        mv android-13 build-tools
+        mv build-tools 33.0.2
 
         echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
