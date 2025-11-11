@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -16,27 +16,32 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install Linux dependencies
+      - name: Install system dependencies
         run: |
-          sudo apt update
-          sudo apt install -y \
-            python3-pip git zip unzip autoconf automake libtool pkg-config \
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip python3-pip autoconf automake libtool pkg-config \
             zlib1g-dev libstdc++6 openjdk-17-jdk libffi-dev libssl-dev
 
-      - name: Install Buildozer & Cython
+      - name: Install Buildozer + Cython
         run: |
           python3 -m pip install --upgrade pip
           pip install "cython<3.0" buildozer
 
-      - name: Install Android SDK (with AIDL)
+      - name: Install Android SDK + AIDL (SAFE METHOD)
         run: |
-          mkdir -p $HOME/android-sdk
-          cd $HOME/android-sdk
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O cmdtools.zip
-          unzip cmdtools.zip -d cmdline-tools
-          mkdir -p cmdline-tools/latest
-          mv cmdline-tools/* cmdline-tools/latest/ || true
-          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+
+          # Download commandline tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+          unzip tools.zip -d tools
+
+          # SDKManager path
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export PATH=$HOME/android-sdk/cmdline-tools/tools/bin:$PATH
+
+          yes | sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2" \
@@ -45,13 +50,13 @@ jobs:
           echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
 
-      - name: Build APK (debug)
+      - name: Build APK
         run: |
           export ANDROIDSDK=$HOME/android-sdk
           export ANDROID_HOME=$HOME/android-sdk
           buildozer -v android debug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MemoryMatch-APK
