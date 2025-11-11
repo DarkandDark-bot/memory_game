@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@vv5
         with:
           python-version: "3.10"
 
@@ -21,30 +21,29 @@ jobs:
           sudo apt update
           sudo apt install -y \
             python3-pip git zip unzip autoconf automake libtool pkg-config \
-            zlib1g-dev libncurses5 libstdc++6 openjdk-17-jdk \
+            zlib1g-dev libstdc++6 openjdk-17-jdk \
             libffi-dev libssl-dev
 
-      - name: Install Buildozer + p4a requirements
+      - name: Install Buildozer + Cython
         run: |
           pip install --upgrade pip
           pip install "cython<3.0" buildozer
 
-      - name: Install Android SDK (with AIDL)
+      - name: Install Android SDK + AIDL
         run: |
           mkdir -p $HOME/android-sdk
           cd $HOME/android-sdk
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O cmdtools.zip
-          unzip cmdtools.zip -d cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O tools.zip
+          unzip tools.zip -d cmdline-tools
           mkdir -p cmdline-tools/latest
-          mv cmdline-tools/* cmdline-tools/latest/
+          mv cmdline-tools/* cmdline-tools/latest/ || true
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2" \
-            "tools" \
             "cmdline-tools;latest"
-          echo "export ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "export ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
@@ -52,7 +51,7 @@ jobs:
           export ANDROID_HOME=$HOME/android-sdk
           buildozer -v android debug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MemoryMatch-APK
