@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Setup Python
@@ -16,46 +16,75 @@ jobs:
       with:
         python-version: "3.10"
 
-    - name: Install Ubuntu deps
+    - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y git zip unzip python3-pip openjdk-17-jdk \
-          autoconf automake libtool pkg-config zlib1g-dev libffi-dev libssl-dev
+        sudo apt install -y \
+          python3-pip git zip unzip openjdk-17-jdk autoconf automake \
+          libtool pkg-config zlib1g-dev libffi-dev libssl-dev
 
-    - name: Install Buildozer
+    - name: Install Buildozer & Cython
       run: |
         pip install --upgrade pip
         pip install "cython<3" buildozer
 
-    - name: Install Android SDK + MANUAL build-tools
+    - name: Install Android SDK (FIXED STRUCTURE + MANUAL BUILD-TOOLS)
       run: |
-        mkdir -p $HOME/android-sdk/cmdline-tools
-        cd $HOME/android-sdk/cmdline-tools
-        
-        # ✅ Install commandline-tools (for sdkmanager & platform-tools)
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-        mkdir latest
-        unzip tools.zip -d latest/
-
+        # -------------------------------
+        # ✅ CORRECT SDK ROOT
+        # -------------------------------
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
+        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+        cd $ANDROID_SDK_ROOT/cmdline-tools
 
-        yes | sdkmanager --licenses
+        # -------------------------------
+        # ✅ DOWNLOAD OLD CMDLINE TOOLS
+        # (the last one that works with build-tools 33.x)
+        # -------------------------------
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+        
+        # Unzip into temp, because Google nests folders
+        mkdir temp
+        unzip tools.zip -d temp/
 
-        # ✅ Install ONLY platform-tools and platform (NO build-tools here!)
-        yes | sdkmanager \
-            "platform-tools" \
-            "platforms;android-33"
+        # Move INNER cmdline-tools to the REAL location
+        mv temp/cmdline-tools latest
+        rm -rf temp
 
-        # ✅ MANUAL install of build-tools 33.0.2 (NO LICENSE REQUIRED)
-        cd $HOME/android-sdk
+        # -------------------------------
+        # ✅ SDKMANAGER PATH FIX
+        # -------------------------------
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
+        chmod +x $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/*
+
+        # -------------------------------
+        # ✅ ACCEPT LICENSES
+        # -------------------------------
+        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+
+        # -------------------------------
+        # ✅ INSTALL PLATFORM-TOOLS ONLY
+        # (DON'T INSTALL build-tools HERE — Google force-installs 36.x)
+        # -------------------------------
+        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
+          "platform-tools" \
+          "platforms;android-33"
+
+        # -------------------------------
+        # ✅ MANUAL INSTALL OF BUILD-TOOLS 33.0.2
+        # (Contains aidl, aapt2, d8, etc.)
+        # -------------------------------
+        cd $ANDROID_SDK_ROOT
         wget https://dl.google.com/android/repository/build-tools_r33.0.2-linux.zip -O bt.zip
         unzip bt.zip
-        mv android-13 build-tools
-        mv build-tools 33.0.2
 
-        echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        # ZIP unpacks as "android-13"
+        mv android-13 build-tools
+        mv build-tools build-tools/33.0.2
+
+        echo "ANDROIDSDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+        echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
     - name: Build APK
       run: |
