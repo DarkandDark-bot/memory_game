@@ -26,25 +26,27 @@ jobs:
       - name: Install Buildozer & Cython
         run: |
           python3 -m pip install --upgrade pip
-          pip install "cython<3.0" buildozer
+          pip install "cython<3" buildozer
 
-      - name: Install Android SDK (FINAL FIX)
+      - name: Install Android SDK + Accept Licenses
         run: |
+          # Base dir
           mkdir -p $HOME/android-sdk/cmdline-tools/latest
           cd $HOME/android-sdk/cmdline-tools/latest
 
-          # Descargar commandline tools
+          # Download Google CMD Tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-
-          # Descomprimir dentro de la carpeta ya creada
           unzip tools.zip
 
-          # sdkmanager real location in 2025:
           export ANDROID_SDK_ROOT=$HOME/android-sdk
           export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
 
           chmod +x $HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin/*
 
+          # Accept ALL Google licenses before installing anything
+          yes | sdkmanager --licenses --sdk_root=$HOME/android-sdk
+
+          # Manually force ONLY supported build-tools version (NO 36.x)
           yes | sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" \
             "platforms;android-33" \
