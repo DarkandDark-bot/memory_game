@@ -23,18 +23,16 @@ jobs:
             git zip unzip python3-pip autoconf automake libtool pkg-config \
             zlib1g-dev libstdc++6 openjdk-17-jdk libffi-dev libssl-dev
 
-      - name: Install Buildozer & Cython
+      - name: Install Buildozer
         run: |
           python3 -m pip install --upgrade pip
           pip install "cython<3" buildozer
 
-      - name: Install Android SDK + Accept Licenses
+      - name: Install Android SDK (FORCE 33.0.2)
         run: |
-          # Base dir
           mkdir -p $HOME/android-sdk/cmdline-tools/latest
           cd $HOME/android-sdk/cmdline-tools/latest
 
-          # Download Google CMD Tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
           unzip tools.zip
 
@@ -43,15 +41,25 @@ jobs:
 
           chmod +x $HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin/*
 
-          # Accept ALL Google licenses before installing anything
+          # Accept all licenses FIRST
           yes | sdkmanager --licenses --sdk_root=$HOME/android-sdk
 
-          # Manually force ONLY supported build-tools version (NO 36.x)
+          # ✅ FORCE INSTALL ONLY SUPPORTED BUILD-TOOLS (NO 36.x!)
           yes | sdkmanager --sdk_root=$HOME/android-sdk \
-            "platform-tools" \
-            "platforms;android-33" \
             "build-tools;33.0.2" \
-            "cmdline-tools;latest"
+            "platform-tools" \
+            "platforms;android-33"
+
+          # ✅ REMOVE ANY 36.x IF GOOGLE INSTALLED IT
+          rm -rf $HOME/android-sdk/build-tools/36.*
+
+          # ✅ Install AIDL manually if needed
+          if [ ! -f "$HOME/android-sdk/build-tools/33.0.2/aidl" ]; then
+              echo "Manual AIDL install..."
+              wget https://dl.google.com/android/repository/build-tools_r33.0.2-linux.zip -O bt.zip
+              unzip bt.zip -d $HOME/android-sdk/
+              mv $HOME/android-sdk/android-11 $HOME/android-sdk/build-tools/33.0.2
+          fi
 
           echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
