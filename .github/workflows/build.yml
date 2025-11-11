@@ -27,25 +27,31 @@ jobs:
         pip install --upgrade pip
         pip install "cython<3" buildozer
 
-    - name: Install Android SDK (WORKING PATH FIX)
+    - name: Install Android SDK (FIXED STRUCTURE)
       run: |
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
 
-        # ✅ Working version of commandline-tools
+        # ✅ Download old tools (33.x compatible)
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-        unzip tools.zip -d latest/
 
-        # ✅ REAL sdkmanager path
+        # ✅ Unzip into temp folder
+        mkdir temp
+        unzip tools.zip -d temp/
+
+        # ✅ Move REAL cmdline-tools into place
+        mv temp/cmdline-tools latest
+
+        rm -rf temp
+
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
 
-        chmod +x $HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin/*
+        chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/*
 
-        yes | sdkmanager --licenses
+        yes | sdkmanager --sdk_root=$HOME/android-sdk --licenses
 
-        # ✅ FORCE only supported build-tools
-        yes | sdkmanager \
+        yes | sdkmanager --sdk_root=$HOME/android-sdk \
           "platform-tools" \
           "platforms;android-33" \
           "build-tools;33.0.2"
